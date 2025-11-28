@@ -197,6 +197,9 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 
 app.post('/api/translate', async (req, res) => {
   try {
+    console.log('📝 Translation request received');
+    console.log('Messages:', JSON.stringify(req.body.messages).substring(0, 200) + '...');
+    
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -212,14 +215,20 @@ app.post('/api/translate', async (req, res) => {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+      const errorData = await response.text();
+      console.error('❌ Claude API Error:', response.status, errorData);
+      throw new Error(`API Error: ${response.status} - ${errorData.substring(0, 100)}`);
     }
 
     const data = await response.json();
+    console.log('✅ Translation successful');
     res.json(data);
   } catch (error) {
-    console.error('Translation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Translation error:', error.message);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.toString()
+    });
   }
 });
 
