@@ -233,6 +233,92 @@ app.post('/api/translate', async (req, res) => {
 });
 
 // ============================================
+// NOTES ENDPOINTS (wymagają auth)
+// ============================================
+
+// Zapisz notatkę
+app.post('/api/notes/save', authenticateToken, async (req, res) => {
+  try {
+    const { content, timestamp } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ error: 'Missing required field: content' });
+    }
+
+    const notesCollection = db.collection('notes');
+
+    const note = {
+      userId: req.user.email,
+      content,
+      timestamp: timestamp || new Date(),
+      createdAt: new Date()
+    };
+
+    await notesCollection.insertOne(note);
+    res.json({ success: true, message: 'Note saved' });
+  } catch (error) {
+    console.error('Save note error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Pobierz notatki
+app.get('/api/notes/get', authenticateToken, async (req, res) => {
+  try {
+    const notesCollection = db.collection('notes');
+    const notes = await notesCollection
+      .find({ userId: req.user.email })
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .toArray();
+    res.json(notes);
+  } catch (error) {
+    console.error('Get notes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Usuń notatkę
+app.delete('/api/notes/delete/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ObjectId } = require('mongodb');
+    const notesCollection = db.collection('notes');
+    
+    const result = await notesCollection.deleteOne({ 
+      _id: new ObjectId(id),
+      userId: req.user.email
+    });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    res.json({ success: true, message: 'Note deleted' });
+  } catch (error) {
+    console.error('Delete note error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Wyczyść wszystkie notatki
+app.delete('/api/notes/clear', authenticateToken, async (req, res) => {
+  try {
+    const notesCollection = db.collection('notes');
+    const result = await notesCollection.deleteMany({ 
+      userId: req.user.email
+    });
+    res.json({ 
+      success: true, 
+      message: `Deleted ${result.deletedCount} notes` 
+    });
+  } catch (error) {
+    console.error('Clear notes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // HISTORY ENDPOINTS (wymagają auth)
 // ============================================
 
